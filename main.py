@@ -159,6 +159,107 @@ async def api_post_transaction(request):
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
 
+
+async def api_get_transactions(request):
+    """Endpoint: Get recent transactions for a user"""
+    try:
+        tg_id = int(request.query.get("tg_id", 0))
+    except ValueError:
+        return web.json_response({"error": "Invalid tg_id"}, status=400)
+    if not tg_id:
+        return web.json_response({"error": "Missing tg_id"}, status=400)
+
+    from datetime import date
+    from sqlalchemy import select, desc
+    from database.models.transaction import Transaction
+    from database.models.category import Category
+
+    async with async_session() as session:
+        user_repo = UserRepository(session)
+        user = await user_repo.get_by_telegram_id(tg_id)
+        if not user:
+            return web.json_response({"transactions": []})
+
+        # Get last 20 transactions with category info
+        result = await session.execute(
+            select(Transaction, Category)
+            .outerjoin(Category, Transaction.category_id == Category.id)
+            .where(Transaction.user_id == tg_id)
+            .order_by(desc(Transaction.created_at))
+            .limit(20)
+        )
+        rows = result.all()
+
+        transactions = []
+        for tx, cat in rows:
+            transactions.append({
+                "id": tx.id,
+                "type": tx.type,
+                "amount": tx.amount,
+                "description": tx.description or "",
+                "category_name": cat.name if cat else ("Daromad" if tx.type == "income" else "Boshqa"),
+                "category_icon": cat.icon if cat else ("💰" if tx.type == "income" else "📦"),
+                "date": tx.transaction_date.isoformat() if tx.transaction_date else str(tx.created_at.date()),
+                "created_at": str(tx.created_at),
+            })
+
+        return web.json_response({"transactions": transactions})
+
+
+async def api_get_categories(request):
+    """Endpoint: Get user's expense categories"""
+    try:
+        tg_id = int(request.query.get("tg_id", 0))
+    except ValueError:
+        return web.json_response({"error": "Invalid tg_id"}, status=400)
+    if not tg_id:
+        return web.json_response({"error": "Missing tg_id"}, status=400)
+
+    from database.repositories.category_repo import CategoryRepository
+
+    async with async_session() as session:
+        cat_repo = CategoryRepository(session)
+        categories = await cat_repo.get_user_categories(tg_id)
+
+        cat_list = [{"id": c.id, "name": c.name, "icon": c.icon} for c in categories]
+        return web.json_response({"categories": cat_list})
+
+
+async def api_get_stats(request):
+    """Endpoint: Get monthly income/expense stats"""
+    try:
+        tg_id = int(request.query.get("tg_id", 0))
+    except ValueError:
+        return web.json_response({"error": "Invalid tg_id"}, status=400)
+    if not tg_id:
+        return web.json_response({"error": "Missing tg_id"}, status=400)
+
+    from datetime import date
+
+    async with async_session() as session:
+        user_repo = UserRepository(session)
+        user = await user_repo.get_by_telegram_id(tg_id)
+        if not user:
+            return web.json_response({"income": 0, "expense": 0})
+
+        tx_repo = TransactionRepository(session)
+        today = date.today()
+
+        income_total = await tx_repo.get_monthly_income_total(tg_id, today.month, today.year)
+        expense_total = await tx_repo.get_monthly_expense_total(tg_id, today.month, today.year)
+
+        # Get expenses by category
+        expenses_by_cat = await tx_repo.get_expenses_by_category(tg_id, today.month, today.year)
+
+        return web.json_response({
+            "income": income_total,
+            "expense": expense_total,
+            "categories": expenses_by_cat,
+            "month": today.month,
+            "year": today.year,
+        })
+
+
 async def start_web_app():
     """Start the aiohttp web server to serve the React Mini App"""
     app = web.Application(middlewares=[cors_middleware])
@@ -167,6 +268,9 @@ async def start_web_app():
     app.router.add_get('/', index_handler)
     app.router.add_get('/api/user', api_get_user)
     app.router.add_post('/api/transaction', api_post_transaction)
+    app.router.add_get('/api/transactions', api_get_transactions)
+    app.router.add_get('/api/categories', api_get_categories)
+    app.router.add_get('/api/stats', api_get_stats)
     app.router.add_static('/', path=Path(__file__).parent / 'webapp' / 'dist', name='webapp')
     
     runner = web.AppRunner(app)

@@ -2,55 +2,79 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence, animate } from 'framer-motion';
 import { 
   Home, BarChart3, Settings, 
-  Plus,
-  ShoppingCart, Briefcase, Coffee
+  Plus
 } from 'lucide-react';
 import { DashboardWidgets } from './DashboardWidgets';
 import { WidgetContent } from './WidgetScreens';
 
-// --- Custom Smooth Counter ---
-function SmoothCounter({ value }: { value: number }) {
-  const [displayValue, setDisplayValue] = useState(value);
-  
-  useEffect(() => {
-    const controls = animate(displayValue, value, {
-      duration: 0.8,
-      ease: "easeOut",
-      onUpdate(cur) {
-        setDisplayValue(cur);
-      }
-    });
-    return () => controls.stop();
-  }, [value]);
-
-  return <span>{Math.round(displayValue).toLocaleString('ru-RU')}</span>;
+// --- Determine API base URL ---
+function getApiBase(): string {
+  // If inside Telegram WebApp, try to use the bot's server
+  const tg = (window as any).Telegram?.WebApp;
+  if (tg) {
+    // Same origin for Railway deployment
+    const origin = window.location.origin;
+    if (origin.includes('github.io')) {
+      // GitHub Pages can't reach API - use empty string to show static fallback
+      return '';
+    }
+    return origin;
+  }
+  // Local development
+  return 'http://127.0.0.1:8000';
 }
 
-// --- Custom Toast Component ---
-function ToastNotification({ message, type, onClose }: any) {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 3000);
-    return () => clearTimeout(timer);
-  }, [onClose]);
+// --- Format money helper ---
+function formatMoney(amount: number): string {
+  return Math.abs(amount).toLocaleString('ru-RU').replace(/,/g, ' ');
+}
 
+// --- Custom Smooth Counter ---
+function SmoothCounter({ value }: { value: number }) {
+  const [display, setDisplay] = useState(value);
+  
+  useEffect(() => {
+    const control = animate(display, value, {
+      duration: 0.5,
+      onUpdate: (v) => setDisplay(Math.round(v)),
+    });
+    return () => control.stop();
+  }, [value]);
+  
+  return <>{formatMoney(display)}</>;
+}
+
+// --- Toast Notification ---
+function ToastNotification({ message, type, onClose }: { message: string; type: string; onClose: () => void }) {
+  useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: -50, scale: 0.8 }}
-      animate={{ opacity: 1, y: 20, scale: 1 }}
-      exit={{ opacity: 0, y: -20, scale: 0.8 }}
-      className={`fixed top-4 left-1/2 -translate-x-1/2 px-6 py-3 rounded-2xl shadow-xl font-bold z-50 flex items-center gap-3 ${
-        type === 'error' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'
-      }`}
-    >
-      {message}
-    </motion.div>
+    <motion.div
+      initial={{ opacity: 0, y: -30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -30 }}
+      className={`fixed top-4 left-1/2 -translate-x-1/2 max-w-[340px] w-[90%] z-50 p-4 rounded-2xl text-white font-bold text-center shadow-xl ${type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}
+    >{message}</motion.div>
   );
 }
 
+// --- Transaction item type ---
+interface TransactionItem {
+  id: number;
+  type: string;
+  amount: number;
+  description: string;
+  category_name: string;
+  category_icon: string;
+  date: string;
+  created_at: string;
+}
+
 function App() {
-  const [balance, setBalance] = useState(12450000);
+  const [balance, setBalance] = useState(0);
+  const [monthlyIncome, setMonthlyIncome] = useState(0);
+  const [monthlyExpense, setMonthlyExpense] = useState(0);
+  const [transactions, setTransactions] = useState<TransactionItem[]>([]);
   const [triggerShake, setTriggerShake] = useState(false);
   const [toastMsg, setToastMsg] = useState<{msg: string, type: string} | null>(null);
+  const [dataLoaded, setDataLoaded] = useState(false);
   
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -60,33 +84,52 @@ function App() {
   // Load Telegram User Info
   const tgUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
   const tgUserId = tgUser?.id || null;
-  const userName = tgUser?.first_name || "Jasur";
+  const userName = tgUser?.first_name || "Foydalanuvchi";
   const userInitial = userName.charAt(0).toUpperCase();
 
-  useEffect(() => {
-    if (tgUserId) {
-      fetch(`http://127.0.0.1:8000/api/user?tg_id=${tgUserId}`)
-        .then(r => r.json())
-        .then(data => {
-          if (data.status === 'ok') {
-            setBalance(data.balance);
-          }
-        })
-        .catch(err => console.error("API error:", err));
+  const API_BASE = getApiBase();
+
+  // Fetch all data from backend
+  const fetchAllData = async () => {
+    if (!tgUserId || !API_BASE) return;
+    try {
+      const [userRes, txRes, statsRes] = await Promise.all([
+        fetch(`${API_BASE}/api/user?tg_id=${tgUserId}`).then(r => r.json()),
+        fetch(`${API_BASE}/api/transactions?tg_id=${tgUserId}`).then(r => r.json()),
+        fetch(`${API_BASE}/api/stats?tg_id=${tgUserId}`).then(r => r.json()),
+      ]);
+
+      if (userRes.status === 'ok') setBalance(userRes.balance);
+      if (txRes.transactions) setTransactions(txRes.transactions);
+      if (statsRes) {
+        setMonthlyIncome(statsRes.income || 0);
+        setMonthlyExpense(statsRes.expense || 0);
+      }
+      setDataLoaded(true);
+    } catch (err) {
+      console.error("API sync error:", err);
     }
+  };
+
+  useEffect(() => {
+    fetchAllData();
     
     if ((window as any).Telegram?.WebApp) {
       (window as any).Telegram.WebApp.ready();
       (window as any).Telegram.WebApp.expand();
       (window as any).Telegram.WebApp.setHeaderColor('#e6eef6');
     }
+
+    // Auto-refresh every 5 seconds to sync with bot
+    const interval = setInterval(fetchAllData, 5000);
+    return () => clearInterval(interval);
   }, [tgUserId]);
 
   const handleTransaction = async (isExpense: boolean) => {
     if (!inputValue || isNaN(Number(inputValue)) || Number(inputValue) <= 0) return;
     const amount = Number(inputValue);
     
-    if (!tgUserId) {
+    if (!tgUserId || !API_BASE) {
       if (isExpense && balance < amount) {
         setToastMsg({ msg: "Mablag' yetarli emas!", type: 'error' });
         setTriggerShake(true);
@@ -94,14 +137,14 @@ function App() {
         return;
       }
       setBalance(prev => isExpense ? prev - amount : prev + amount);
-      setToastMsg({ msg: "Muaffaqiyatli! (" + (isExpense ? "-" : "+") + amount + ")", type: 'success' });
+      setToastMsg({ msg: "Saqlandi! (" + (isExpense ? "-" : "+") + formatMoney(amount) + ")", type: 'success' });
       setInputValue('');
       setIsAddModalOpen(false);
       return;
     }
 
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/transaction', {
+      const res = await fetch(`${API_BASE}/api/transaction`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tg_id: tgUserId, amount: amount, is_expense: isExpense })
@@ -113,10 +156,11 @@ function App() {
         setTriggerShake(true);
         setTimeout(() => setTriggerShake(false), 500);
       } else if (data.success) {
-        setBalance(data.new_balance);
-        setToastMsg({ msg: "Haqiqiy Tranzaksiya tushdi!", type: "success" });
+        setToastMsg({ msg: "✅ Tranzaksiya saqlandi!", type: "success" });
         setInputValue('');
         setIsAddModalOpen(false);
+        // Re-fetch all data to sync
+        await fetchAllData();
       } else {
         setToastMsg({ msg: "Mablag' yetarli emas!", type: "error" });
         setTriggerShake(true);
@@ -124,11 +168,23 @@ function App() {
       }
     } catch (err) {
       console.error(err);
-      setToastMsg({ msg: "Server uzoqda! Lokal saqlandi (" + (isExpense ? "-" : "+") + amount + ")", type: "error" });
-      setBalance(prev => isExpense ? prev - amount : prev + amount);
-      setInputValue('');
-      setIsAddModalOpen(false);
+      setToastMsg({ msg: "Server bilan aloqa yo'q!", type: "error" });
     }
+  };
+
+  // Calculate percentage change
+  const netChange = monthlyIncome - monthlyExpense;
+  const changePercent = monthlyIncome > 0 ? ((netChange / monthlyIncome) * 100).toFixed(1) : "0";
+
+  // Format relative date
+  const formatDate = (dateStr: string): string => {
+    const txDate = new Date(dateStr);
+    const today = new Date();
+    const diff = Math.floor((today.getTime() - txDate.getTime()) / (1000 * 60 * 60 * 24));
+    if (diff === 0) return "Bugun";
+    if (diff === 1) return "Kecha";
+    if (diff < 7) return `${diff} kun oldin`;
+    return txDate.toLocaleDateString('uz-UZ');
   };
 
   const shakeVariants = {
@@ -166,20 +222,24 @@ function App() {
           <div className="text-3xl font-extrabold tracking-tight mb-2 text-[var(--text-color)]">
             <SmoothCounter value={balance} /> so'm
           </div>
-          <p className="text-sm text-green-500 font-semibold bg-green-500/10 px-3 py-1 rounded-full">
-            ↑ +3.2% bu oy
-          </p>
+          {dataLoaded && (
+            <p className={`text-sm font-semibold px-3 py-1 rounded-full ${
+              netChange >= 0 ? 'text-green-500 bg-green-500/10' : 'text-red-500 bg-red-500/10'
+            }`}>
+              {netChange >= 0 ? '↑' : '↓'} {netChange >= 0 ? '+' : ''}{changePercent}% bu oy
+            </p>
+          )}
         </motion.div>
 
-        {/* Income / Expense Summary */}
+        {/* Income / Expense Summary — REAL DATA */}
         <div className="flex gap-4 mb-6">
           <div className="neo-elem flex-1 p-4 rounded-2xl">
             <p className="text-xs opacity-60 mb-1 font-medium">Daromad</p>
-            <p className="text-green-500 font-bold text-lg">+4 200 000</p>
+            <p className="text-green-500 font-bold text-lg">+{formatMoney(monthlyIncome)}</p>
           </div>
           <div className="neo-elem flex-1 p-4 rounded-2xl">
             <p className="text-xs opacity-60 mb-1 font-medium">Xarajat</p>
-            <p className="text-red-500 font-bold text-lg">-1 750 000</p>
+            <p className="text-red-500 font-bold text-lg">-{formatMoney(monthlyExpense)}</p>
           </div>
         </div>
 
@@ -189,7 +249,7 @@ function App() {
             onClick={() => setIsAddModalOpen(true)}
             className="neo-elem w-full py-4 rounded-2xl flex items-center justify-center gap-3 hover:shadow-lg transition-all"
           >
-            <Plus className="text-indigo-500" size={22} />
+            <Plus className="text-green-500" size={22} />
             <span className="font-bold opacity-80">Tranzaksiya qo'shish</span>
           </button>
         </div>
@@ -197,64 +257,40 @@ function App() {
         {/* Menyu va Vidjetlar */}
         <DashboardWidgets onWidgetClick={(_, name) => setActiveWidget(name)} />
 
-        {/* Monthly Chart Placeholder */}
-        <div className="mb-8">
-          <h2 className="text-lg font-bold mb-4 opacity-90">Oylik xarajatlar</h2>
-          <div className="neo-inset rounded-3xl p-4 h-32 flex items-end justify-between gap-2">
-            {[30, 45, 25, 60, 40, 85].map((h, i) => (
-              <div key={i} className="flex flex-col items-center flex-1 gap-2">
-                <div 
-                  className={`w-full rounded-t-lg transition-all duration-500 ${i === 5 ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} 
-                  style={{ height: `${h}%` }}
-                ></div>
-                <span className={`text-[10px] font-bold ${i === 5 ? 'text-green-500' : 'opacity-50'}`}>
-                  {['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyu'][i]}
+        {/* Recent Transactions — REAL DATA FROM DATABASE */}
+        <div className="mt-6">
+          <h2 className="text-lg font-bold mb-4 opacity-90">So'nggi tranzaksiyalar</h2>
+          <div className="flex flex-col gap-3">
+            {transactions.length === 0 && dataLoaded && (
+              <div className="neo-inset rounded-2xl p-6 text-center opacity-50">
+                <p>Hali tranzaksiya yo'q</p>
+                <p className="text-xs mt-1">Botga "taksiga 15000 ketdi" deb yozing!</p>
+              </div>
+            )}
+            {transactions.length === 0 && !dataLoaded && !API_BASE && (
+              <div className="neo-inset rounded-2xl p-6 text-center opacity-50">
+                <p>Bot bilan sinxronlash uchun</p>
+                <p className="text-xs mt-1">Telegram orqali oching</p>
+              </div>
+            )}
+            {transactions.map((tx) => (
+              <div key={tx.id} className="neo-elem rounded-2xl p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-11 h-11 neo-inset rounded-full flex items-center justify-center text-lg ${
+                    tx.type === 'income' ? 'bg-green-500/10' : 'bg-red-500/5'
+                  }`}>
+                    {tx.category_icon}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm">{tx.description || tx.category_name}</h3>
+                    <p className="text-xs opacity-50">{formatDate(tx.date)}</p>
+                  </div>
+                </div>
+                <span className={`font-bold text-sm ${tx.type === 'income' ? 'text-green-500' : 'text-red-500'}`}>
+                  {tx.type === 'income' ? '+' : '-'}{formatMoney(tx.amount)}
                 </span>
               </div>
             ))}
-          </div>
-        </div>
-
-        {/* Recent Transactions */}
-        <div>
-          <h2 className="text-lg font-bold mb-4 opacity-90">So'nggi tranzaksiyalar</h2>
-          <div className="flex flex-col gap-4">
-            <div className="neo-elem rounded-2xl p-4 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 neo-inset rounded-full flex items-center justify-center text-green-600 bg-green-500/10">
-                  <ShoppingCart size={20} />
-                </div>
-                <div>
-                  <h3 className="font-bold">Korzinka</h3>
-                  <p className="text-xs opacity-50">Bugun, 14:32</p>
-                </div>
-              </div>
-              <span className="font-bold text-red-500">-85 000</span>
-            </div>
-            <div className="neo-elem rounded-2xl p-4 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 neo-inset rounded-full flex items-center justify-center text-blue-600 bg-blue-500/10">
-                  <Briefcase size={20} />
-                </div>
-                <div>
-                  <h3 className="font-bold">Maosh</h3>
-                  <p className="text-xs opacity-50">Kecha, 09:00</p>
-                </div>
-              </div>
-              <span className="font-bold text-green-500">+4 200 000</span>
-            </div>
-            <div className="neo-elem rounded-2xl p-4 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 neo-inset rounded-full flex items-center justify-center text-orange-600 bg-orange-500/10">
-                  <Coffee size={20} />
-                </div>
-                <div>
-                  <h3 className="font-bold">Starbucks</h3>
-                  <p className="text-xs opacity-50">3 kun oldin</p>
-                </div>
-              </div>
-              <span className="font-bold text-red-500">-35 000</span>
-            </div>
           </div>
         </div>
       </div>
@@ -270,39 +306,45 @@ function App() {
       <AnimatePresence>
         {isAddModalOpen && (
           <motion.div 
-            initial={{ opacity: 0, y: 300 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 300 }}
-            className="fixed inset-x-0 bottom-0 mx-auto max-w-md z-50 p-6 flex flex-col bg-[var(--bg-color)] rounded-t-3xl shadow-2xl"
-            style={{ boxShadow: "0 -10px 40px rgba(0,0,0,0.15)" }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 bg-black/30 flex items-end justify-center"
+            onClick={() => setIsAddModalOpen(false)}
           >
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold">Tranzaksiya qo'shish</h2>
-              <button 
-                onClick={() => setIsAddModalOpen(false)}
-                className="neo-elem w-10 h-10 flex items-center justify-center rounded-full font-bold opacity-70"
-              >✕</button>
-            </div>
-            
-            <input 
-              type="number" 
-              placeholder="0 UZS"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              className="neo-pressed w-full font-bold p-4 text-2xl text-center mb-6 bg-transparent rounded-2xl"
-              autoFocus
-            />
-            
-            <div className="flex gap-4">
-              <button 
-                onClick={() => handleTransaction(false)}
-                className="flex-1 neo-elem py-4 rounded-2xl text-green-500 font-bold text-lg active:scale-95 transition-transform"
-              >+ Daromad</button>
-              <button 
-                onClick={() => handleTransaction(true)}
-                className="flex-1 neo-elem py-4 rounded-2xl text-red-500 font-bold text-lg active:scale-95 transition-transform"
-              >- Xarajat</button>
-            </div>
+            <motion.div 
+              initial={{ y: 300 }} animate={{ y: 0 }} exit={{ y: 300 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="bg-[var(--bg-color)] w-full max-w-md rounded-t-3xl p-8 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-6" />
+              <h2 className="text-xl font-bold mb-6 text-center">Tranzaksiya qo'shish</h2>
+
+              <div className="neo-inset rounded-2xl p-4 mb-6">
+                <input 
+                  type="number"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  placeholder="Summani kiriting..."
+                  className="w-full bg-transparent text-center text-2xl font-bold outline-none"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => handleTransaction(true)}
+                  className="flex-1 bg-red-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg hover:bg-red-600 active:scale-95 transition-all"
+                >
+                  − Xarajat
+                </button>
+                <button 
+                  onClick={() => handleTransaction(false)}
+                  className="flex-1 bg-green-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg hover:bg-green-600 active:scale-95 transition-all"
+                >
+                  + Daromad
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -329,7 +371,6 @@ function App() {
           </motion.div>
         )}
       </AnimatePresence>
-
     </div>
   );
 }
