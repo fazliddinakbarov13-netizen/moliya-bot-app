@@ -81,9 +81,10 @@ function App() {
   const [inputValue, setInputValue] = useState('');
   const [activeWidget, setActiveWidget] = useState<string | null>(null);
 
-  // Load Telegram User Info
+  // Load Telegram User Info — fallback to URL param for testing
   const tgUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
-  const tgUserId = tgUser?.id || null;
+  const urlParams = new URLSearchParams(window.location.search);
+  const tgUserId = tgUser?.id || urlParams.get('tg_id') || null;
   const userName = tgUser?.first_name || "Foydalanuvchi";
   const userInitial = userName.charAt(0).toUpperCase();
 
