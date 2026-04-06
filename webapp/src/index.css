@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Nunito', 'Segoe UI', sans-serif;
+  
+  --color-bg-light: #e6eef6;
+  --color-text-light: #334155;
+  --color-primary-light: #4ade80; /* Pastel green from requirements */
+  
+  --color-bg-dark: #1e1e2e;
+  --color-text-dark: #f8fafc;
+  --color-primary-dark: #2dd4bf; 
+
+  /* Light Neumorphism (Soft & Airy) */
+  --shadow-neo-light: 8px 8px 16px #c4cbd9, -8px -8px 16px #ffffff;
+  --shadow-neo-light-inset: inset 6px 6px 12px #c4cbd9, inset -6px -6px 12px #ffffff;
+  
+  /* Dark Neumorphism */
+  --shadow-neo-dark: 8px 8px 16px #13131d, -8px -8px 16px #29293f;
+  --shadow-neo-dark-inset: inset 6px 6px 12px #13131d, inset -6px -6px 12px #29293f;
+
+  /* Touch Targets */
+  --spacing-touch: 44px;
+}
+
+@layer base {
+  :root {
+    --bg-color: var(--color-bg-light);
+    --text-color: var(--color-text-light);
+    --primary-color: var(--color-primary-light);
+    --shadow-neo: var(--shadow-neo-light);
+    --shadow-inset-neo: var(--shadow-neo-light-inset);
+  }
+
+  .dark {
+    --bg-color: var(--color-bg-dark);
+    --text-color: var(--color-text-dark);
+    --primary-color: var(--color-primary-dark);
+    --shadow-neo: var(--shadow-neo-dark);
+    --shadow-inset-neo: var(--shadow-neo-dark-inset);
+  }
+
+  body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: var(--font-sans);
+    /* Tabular figures for numbers */
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Focus ring for accessibility */
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400;
+  }
+}
+
+@layer components {
+  /* Generic Neu Card */
+  .neo-card {
+    background: var(--bg-color);
+    box-shadow: var(--shadow-neo);
+    border-radius: 16px; 
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  }
+  
+  /* Elevated Neu Element */
+  .neo-elem {
+    background: var(--bg-color);
+    box-shadow: var(--shadow-neo);
+    border-radius: 12px;
+    min-height: var(--spacing-touch);
+    min-width: var(--spacing-touch);
+  }
+
+  /* Pressed Neu Input/Zone */
+  .neo-pressed {
+    background: var(--bg-color);
+    box-shadow: var(--shadow-inset-neo);
+    border-radius: 16px;
+    border: none;
+    outline: none;
+    min-height: var(--spacing-touch);
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  }
+}
