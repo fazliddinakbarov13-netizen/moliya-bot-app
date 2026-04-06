@@ -9,14 +9,25 @@ import {
 // ═══════════════════════════════════════════════════════
 // 1. STATISTIKA
 // ═══════════════════════════════════════════════════════
-export function StatistikaScreen() {
-  const categories = [
-    { name: "Oziq-ovqat", amount: 850000, percent: 35, color: "#22c55e" },
-    { name: "Transport", amount: 420000, percent: 18, color: "#3b82f6" },
-    { name: "Kommunal", amount: 350000, percent: 15, color: "#f59e0b" },
-    { name: "Kiyim-kechak", amount: 280000, percent: 12, color: "#ef4444" },
-    { name: "Boshqalar", amount: 480000, percent: 20, color: "#8b5cf6" },
-  ];
+export function StatistikaScreen({ stats }: { stats?: any }) {
+  const income = stats?.income || 0;
+  const expense = Math.abs(stats?.expense || 0);
+  const diff = income - expense;
+  
+  // Format categories from API
+  const categories = stats?.categories || [];
+  const topCategories = categories.slice(0, 5).map((c: any) => ({
+    name: c.name,
+    amount: c.total,
+    percent: expense > 0 ? Math.round((c.total / expense) * 100) : 0,
+    color: "#" + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0') // random hex color for now
+  }));
+
+  const formatM = (num: number) => {
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
+    if (num >= 1000) return (num / 1000).toFixed(1) + "K";
+    return num;
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -25,17 +36,17 @@ export function StatistikaScreen() {
         <div className="neo-elem flex-1 p-4 rounded-2xl text-center">
           <TrendingUp className="mx-auto mb-2 text-green-500" size={24} />
           <p className="text-xs opacity-60">Daromad</p>
-          <p className="font-bold text-green-500">+4.2M</p>
+          <p className="font-bold text-green-500">+{formatM(income)}</p>
         </div>
         <div className="neo-elem flex-1 p-4 rounded-2xl text-center">
           <TrendingDown className="mx-auto mb-2 text-red-500" size={24} />
           <p className="text-xs opacity-60">Xarajat</p>
-          <p className="font-bold text-red-500">-2.38M</p>
+          <p className="font-bold text-red-500">-{formatM(expense)}</p>
         </div>
         <div className="neo-elem flex-1 p-4 rounded-2xl text-center">
           <PieChart className="mx-auto mb-2 text-blue-500" size={24} />
-          <p className="text-xs opacity-60">Tejaldi</p>
-          <p className="font-bold text-blue-500">1.82M</p>
+          <p className="text-xs opacity-60">Qoldiq</p>
+          <p className="font-bold text-blue-500">{formatM(diff)}</p>
         </div>
       </div>
 
@@ -43,15 +54,16 @@ export function StatistikaScreen() {
       <div>
         <h3 className="font-bold mb-4 opacity-80">Toifalar bo'yicha xarajat</h3>
         <div className="flex flex-col gap-3">
-          {categories.map((cat, i) => (
+          {topCategories.length === 0 && <p className="text-sm opacity-50 text-center">Ma'lumot yo'q</p>}
+          {topCategories.map((cat: any, i: number) => (
             <div key={i} className="neo-elem rounded-2xl p-4">
               <div className="flex justify-between items-center mb-2">
                 <span className="font-bold text-sm">{cat.name}</span>
-                <span className="font-bold text-sm">{(cat.amount / 1000).toFixed(0)}K</span>
+                <span className="font-bold text-sm">{formatM(cat.amount)}</span>
               </div>
-              <div className="w-full h-2 rounded-full bg-gray-200 overflow-hidden">
+              <div className="w-full h-2 rounded-full bg-[var(--bg-color)] neo-inset overflow-hidden shadow-inner flex mb-1">
                 <div 
-                  className="h-full rounded-full transition-all duration-700"
+                  className="h-full rounded-full transition-all duration-700 opacity-80 shadow-md"
                   style={{ width: `${cat.percent}%`, backgroundColor: cat.color }}
                 />
               </div>
@@ -92,9 +104,21 @@ export function StatistikaScreen() {
 // ═══════════════════════════════════════════════════════
 // 2. HISOBOT
 // ═══════════════════════════════════════════════════════
-export function HisobotScreen() {
-  const [selectedMonth, setSelectedMonth] = useState("Iyun");
-  const months = ["Yan", "Fev", "Mar", "Apr", "May", "Iyu"];
+export function HisobotScreen({ stats, transactions }: { stats?: any, transactions?: any[] }) {
+  const [selectedMonth, setSelectedMonth] = useState("Joriy");
+  const months = ["Yan", "Fev", "Mar", "Apr", "May", "Joriy"];
+
+  const income = stats?.income || 0;
+  const expense = Math.abs(stats?.expense || 0);
+  const diff = income - expense;
+  const txCount = transactions?.length || 0;
+
+  // Real transactions from DB
+  const recentTx = transactions || [];
+
+  const formatM = (num: number) => {
+    return Math.abs(num).toLocaleString('ru-RU').replace(/,/g, ' ');
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -119,43 +143,40 @@ export function HisobotScreen() {
       <div className="neo-elem rounded-3xl p-6">
         <div className="flex items-center gap-3 mb-4">
           <Calendar className="text-green-500" size={20} />
-          <h3 className="font-bold">{selectedMonth} 2025 hisoboti</h3>
+          <h3 className="font-bold">{selectedMonth} oyi hisoboti</h3>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="neo-inset rounded-2xl p-4 text-center">
             <p className="text-xs opacity-50 mb-1">Umumiy daromad</p>
-            <p className="font-bold text-green-500 text-lg">4 200 000</p>
+            <p className="font-bold text-green-500 text-lg">{formatM(income)}</p>
           </div>
           <div className="neo-inset rounded-2xl p-4 text-center">
             <p className="text-xs opacity-50 mb-1">Umumiy xarajat</p>
-            <p className="font-bold text-red-500 text-lg">2 380 000</p>
+            <p className="font-bold text-red-500 text-lg">{formatM(expense)}</p>
           </div>
           <div className="neo-inset rounded-2xl p-4 text-center">
-            <p className="text-xs opacity-50 mb-1">Sof foyda</p>
-            <p className="font-bold text-blue-500 text-lg">1 820 000</p>
+            <p className="text-xs opacity-50 mb-1">Qoldiq</p>
+            <p className="font-bold text-blue-500 text-lg">{formatM(diff)}</p>
           </div>
           <div className="neo-inset rounded-2xl p-4 text-center">
             <p className="text-xs opacity-50 mb-1">Tranzaksiyalar</p>
-            <p className="font-bold text-lg">47 ta</p>
+            <p className="font-bold text-lg">{txCount} ta</p>
           </div>
         </div>
       </div>
 
       {/* Top Expenses */}
       <div>
-        <h3 className="font-bold mb-3 opacity-80">Eng katta xarajatlar</h3>
+        <h3 className="font-bold mb-3 opacity-80">So'nggi xarajatlar</h3>
         <div className="flex flex-col gap-3">
-          {[
-            { name: "Korzinka", amount: 350000, icon: "🛒" },
-            { name: "Elektr energiya", amount: 180000, icon: "⚡" },
-            { name: "Yoqilg'i", amount: 250000, icon: "⛽" },
-          ].map((item, i) => (
+          {recentTx.length === 0 && <p className="text-sm opacity-50 text-center">Ma'lumot yo'q</p>}
+          {recentTx.filter((t: any) => t.type === 'expense').slice(0, 5).map((item: any, i: number) => (
             <div key={i} className="neo-elem rounded-2xl p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className="text-2xl">{item.icon}</span>
-                <span className="font-bold text-sm">{item.name}</span>
+                <span className="text-2xl">{item.category_icon}</span>
+                <span className="font-bold text-sm">{item.description || item.category_name}</span>
               </div>
-              <span className="font-bold text-red-500 text-sm">-{item.amount.toLocaleString()}</span>
+              <span className="font-bold text-red-500 text-sm">-{formatM(item.amount)}</span>
             </div>
           ))}
         </div>
@@ -454,15 +475,14 @@ export function SozlamalarScreen() {
 // ═══════════════════════════════════════════════════════
 // MAIN WIDGET RENDERER
 // ═══════════════════════════════════════════════════════
-export function WidgetContent({ widgetName }: { widgetName: string }) {
+export function WidgetContent({ widgetName, stats, transactions }: { widgetName: string, stats?: any, transactions?: any[] }) {
   switch (widgetName) {
-    case "Statistika": return <StatistikaScreen />;
-    case "Hisobot": return <HisobotScreen />;
+    case "Statistika": return <StatistikaScreen stats={stats} />;
+    case "Hisobot": return <HisobotScreen stats={stats} transactions={transactions} />;
     case "Maqsadlar": return <MaqsadlarScreen />;
     case "Kreditlar": return <KreditlarScreen />;
     case "Qarzlarim": return <QarzlarimScreen />;
-    case "Kartalar": return <KartalarScreen />;
     case "Sozlamalar": return <SozlamalarScreen />;
-    default: return <p className="text-center opacity-50">Bu bo'lim tez orada ochiladi...</p>;
+    default: return <p className="text-center opacity-50">Bu bo'lim tugallanmoqda...</p>;
   }
 }

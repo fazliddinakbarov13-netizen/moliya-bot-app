@@ -71,6 +71,7 @@ function App() {
   const [balance, setBalance] = useState(0);
   const [monthlyIncome, setMonthlyIncome] = useState(0);
   const [monthlyExpense, setMonthlyExpense] = useState(0);
+  const [stats, setStats] = useState<any>(null);
   const [transactions, setTransactions] = useState<TransactionItem[]>([]);
   const [triggerShake, setTriggerShake] = useState(false);
   const [toastMsg, setToastMsg] = useState<{msg: string, type: string} | null>(null);
@@ -105,6 +106,7 @@ function App() {
       if (statsRes) {
         setMonthlyIncome(statsRes.income || 0);
         setMonthlyExpense(statsRes.expense || 0);
+        setStats(statsRes);
       }
       setDataLoaded(true);
     } catch (err) {
@@ -367,7 +369,7 @@ function App() {
               >✕</button>
             </div>
             <div className="flex-1 overflow-y-auto p-6 pt-2">
-              <WidgetContent widgetName={activeWidget} />
+              <WidgetContent widgetName={activeWidget} stats={stats} transactions={transactions} />
             </div>
           </motion.div>
         )}
