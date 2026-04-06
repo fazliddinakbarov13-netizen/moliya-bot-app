@@ -189,11 +189,7 @@ export function HisobotScreen({ stats, transactions }: { stats?: any, transactio
 // 3. MAQSADLAR
 // ═══════════════════════════════════════════════════════
 export function MaqsadlarScreen() {
-  const goals = [
-    { name: "Yangi telefon", target: 5000000, saved: 3200000, icon: "📱", deadline: "Avg 2025" },
-    { name: "Oylik zaxira", target: 2000000, saved: 1400000, icon: "💰", deadline: "Har oy" },
-    { name: "Ta'til sayohati", target: 15000000, saved: 4500000, icon: "✈️", deadline: "Dek 2025" },
-  ];
+  const goals: any[] = [];
 
   return (
     <div className="flex flex-col gap-6">
@@ -247,10 +243,7 @@ export function MaqsadlarScreen() {
 // 4. KREDITLAR
 // ═══════════════════════════════════════════════════════
 export function KreditlarScreen() {
-  const credits = [
-    { name: "Xonadon ipotekasi", total: 120000000, remaining: 85000000, monthly: 2500000, dueDate: "15-har oy", status: "active" },
-    { name: "Avtomobil krediti", total: 35000000, remaining: 12000000, monthly: 1200000, dueDate: "1-har oy", status: "active" },
-  ];
+  const credits: any[] = [];
 
   return (
     <div className="flex flex-col gap-6">
@@ -258,8 +251,8 @@ export function KreditlarScreen() {
       <div className="neo-elem rounded-3xl p-5 text-center">
         <Banknote className="mx-auto mb-2 text-red-400" size={28} />
         <p className="text-xs opacity-50 mb-1">Umumiy qarz qoldig'i</p>
-        <p className="text-2xl font-extrabold text-red-500">97 000 000 so'm</p>
-        <p className="text-xs opacity-50 mt-2">Oylik to'lov: 3 700 000 so'm</p>
+        <p className="text-2xl font-extrabold text-red-500">0 so'm</p>
+        <p className="text-xs opacity-50 mt-2">Oylik to'lov: 0 so'm</p>
       </div>
 
       {/* Credit Cards */}
@@ -298,11 +291,7 @@ export function KreditlarScreen() {
 // 5. QARZLARIM
 // ═══════════════════════════════════════════════════════
 export function QarzlarimScreen() {
-  const debts = [
-    { person: "Akmal aka", amount: 500000, type: "owed_to_me", date: "2025-05-20", note: "Uy ta'miri uchun" },
-    { person: "Sardor", amount: 1200000, type: "i_owe", date: "2025-06-01", note: "Mashina ijarasi" },
-    { person: "Dilshod", amount: 300000, type: "owed_to_me", date: "2025-04-15", note: "Tushlik puli" },
-  ];
+  const debts: any[] = [];
 
   const totalOwedToMe = debts.filter(d => d.type === "owed_to_me").reduce((s, d) => s + d.amount, 0);
   const totalIOwe = debts.filter(d => d.type === "i_owe").reduce((s, d) => s + d.amount, 0);
