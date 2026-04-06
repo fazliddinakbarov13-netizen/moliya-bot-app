@@ -286,6 +286,10 @@ async def confirm_expense(callback: CallbackQuery, state: FSMContext, session: A
         await callback.message.edit_text("❌ Xarajat saqlanmadi. Qayta urinib ko'ring.")
         await state.clear()
         await callback.answer()
+        await callback.message.answer(
+            "Boshqa amallarni quyidagi menyudan tanlang 👇" if lang == "uz" else "Выберите действие из меню ниже 👇",
+            reply_markup=get_main_menu(lang)
+        )
         return
 
     # Check budget warnings
@@ -317,6 +321,10 @@ async def confirm_expense(callback: CallbackQuery, state: FSMContext, session: A
     await callback.message.edit_text(success)
     await state.clear()
     await callback.answer("✅ Saqlandi!")
+    await callback.message.answer(
+        "Boshqa amallarni quyidagi menyudan tanlang 👇" if lang == "uz" else "Выберите действие из меню ниже 👇",
+        reply_markup=get_main_menu(lang)
+    )
     logger.info(f"User {callback.from_user.id} saved {saved_count} expenses, total: {total_saved}")
 
 
@@ -330,6 +338,10 @@ async def cancel_expense(callback: CallbackQuery, state: FSMContext, session: As
     lang = user.language if user else "uz"
     await callback.message.edit_text("❌ Bekor qilindi." if lang == "uz" else "❌ Отменено.")
     await callback.answer()
+    await callback.message.answer(
+        "Boshqa amallarni quyidagi menyudan tanlang 👇" if lang == "uz" else "Выберите действие из меню ниже 👇",
+        reply_markup=get_main_menu(lang)
+    )
 
 
 # ── Cancel from category selection (inline) ─────────────────────────
@@ -342,6 +354,10 @@ async def cancel_category_select(callback: CallbackQuery, state: FSMContext, ses
     lang = user.language if user else "uz"
     await callback.message.edit_text("❌ Bekor qilindi." if lang == "uz" else "❌ Отменено.")
     await callback.answer()
+    await callback.message.answer(
+        "Boshqa amallarni quyidagi menyudan tanlang 👇" if lang == "uz" else "Выберите действие из меню ниже 👇",
+        reply_markup=get_main_menu(lang)
+    )
 
 
 # ── Manual category selection ───────────────────────────────────────
@@ -438,6 +454,10 @@ async def manual_category_selected(callback: CallbackQuery, state: FSMContext, s
 
     await callback.message.edit_text(success)
     await callback.answer("✅ Saqlandi!")
+    await callback.message.answer(
+        "Boshqa amallarni quyidagi menyudan tanlang 👇" if lang == "uz" else "Выберите действие из меню ниже 👇",
+        reply_markup=get_main_menu(lang)
+    )
     logger.info(f"User {callback.from_user.id} manual expense: {amount} -> {cat_name}")
 
 
