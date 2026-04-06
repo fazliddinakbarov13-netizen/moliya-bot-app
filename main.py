@@ -58,7 +58,7 @@ async def on_shutdown(bot: Bot):
 import json
 from aiohttp import web
 from pathlib import Path
-from database.engine import async_session_maker
+from database.engine import async_session
 from database.repositories.user_repo import UserRepository
 from database.repositories.wallet_repo import WalletRepository
 
@@ -88,7 +88,7 @@ async def api_get_user(request):
     if not tg_id:
         return web.json_response({"error": "Missing tg_id"}, status=400)
 
-    async with async_session_maker() as session:
+    async with async_session() as session:
         user_repo = UserRepository(session)
         wallet_repo = WalletRepository(session)
         
@@ -102,7 +102,6 @@ async def api_get_user(request):
         return web.json_response({"balance": total_balance, "status": "ok"})
 
 from database.repositories.transaction_repo import TransactionRepository
-from bot.services.transaction import TransactionService
 
 async def api_post_transaction(request):
     """Endpoint: Post a new transaction and write to DB"""
@@ -115,7 +114,7 @@ async def api_post_transaction(request):
         if not tg_id or amount <= 0:
             return web.json_response({"error": "Invalid data"}, status=400)
             
-        async with async_session_maker() as session:
+        async with async_session() as session:
             user_repo = UserRepository(session)
             wallet_repo = WalletRepository(session)
             tx_repo = TransactionRepository(session)
@@ -131,17 +130,30 @@ async def api_post_transaction(request):
             if is_expense and wallet.balance < amount:
                 return web.json_response({"error": "Insufficient funds", "success": False})
                 
-            # Create the transaction
-            tx = await tx_repo.create_transaction(
-                user_id=user.id,
-                wallet_id=wallet.id,
-                category_id=None, # Will map specific UI categories later
-                amount=amount,
-                type="expense" if is_expense else "income",
-                description="WebApp orqali",
-            )
+            # Create the transaction using proper repository methods
+            if is_expense:
+                await tx_repo.add_expense(
+                    user_id=user.id,
+                    amount=amount,
+                    category_id=None,
+                    description="WebApp orqali",
+                    wallet_id=wallet.id,
+                    source="webapp",
+                )
+            else:
+                await tx_repo.add_income(
+                    user_id=user.id,
+                    amount=amount,
+                    description="WebApp orqali",
+                    wallet_id=wallet.id,
+                )
+            
             # Update physical wallet balance
             await wallet_repo.update_balance(wallet.id, amount, is_expense=is_expense)
+            await session.commit()
+            
+            # Re-fetch to get updated balance
+            wallet = await wallet_repo.get_default_wallet(user.id)
             print(f"✅ DB Update: User {tg_id} transacted {amount}. Expense: {is_expense}")
             return web.json_response({"status": "ok", "success": True, "new_balance": wallet.balance})
     except Exception as e:
