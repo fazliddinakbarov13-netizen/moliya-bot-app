@@ -17,7 +17,6 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { 
   PieChart, 
-  CreditCard,
   Target,
   Banknote,
   Users,
@@ -74,7 +73,6 @@ export function DashboardWidgets({ onWidgetClick }: { onWidgetClick: (id: string
     { id: '3', name: 'Maqsadlar', icon: Target },
     { id: '4', name: 'Kreditlar', icon: Banknote },
     { id: '5', name: 'Qarzlarim', icon: Users },
-    { id: '6', name: 'Kartalar', icon: CreditCard },
     { id: '7', name: 'Sozlamalar', icon: Settings },
   ]);
 
