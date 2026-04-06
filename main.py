@@ -55,19 +55,106 @@ async def on_shutdown(bot: Bot):
     logger.info("✅ Database connection closed")
 
 
+import json
 from aiohttp import web
 from pathlib import Path
+from database.engine import async_session_maker
+from database.repositories.user_repo import UserRepository
+from database.repositories.wallet_repo import WalletRepository
+
+async def cors_middleware(app, handler):
+    async def middleware_handler(request):
+        if request.method == "OPTIONS":
+            response = web.Response()
+        else:
+            response = await handler(request)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        return response
+    return middleware_handler
 
 async def index_handler(request):
     """Serve the React index.html"""
     return web.FileResponse(Path(__file__).parent / 'webapp' / 'dist' / 'index.html')
 
+async def api_get_user(request):
+    """Endpoint: Fetch real balance from SQLite"""
+    try:
+        tg_id = int(request.query.get("tg_id", 0))
+    except ValueError:
+        return web.json_response({"error": "Invalid tg_id"}, status=400)
+        
+    if not tg_id:
+        return web.json_response({"error": "Missing tg_id"}, status=400)
+
+    async with async_session_maker() as session:
+        user_repo = UserRepository(session)
+        wallet_repo = WalletRepository(session)
+        
+        user = await user_repo.get_by_telegram_id(tg_id)
+        if not user:
+            return web.json_response({"balance": 0.0, "status": "no_user"})
+            
+        wallets = await wallet_repo.get_user_wallets(user.id)
+        total_balance = sum(w.balance for w in wallets)
+        
+        return web.json_response({"balance": total_balance, "status": "ok"})
+
+from database.repositories.transaction_repo import TransactionRepository
+from bot.services.transaction import TransactionService
+
+async def api_post_transaction(request):
+    """Endpoint: Post a new transaction and write to DB"""
+    try:
+        data = await request.json()
+        tg_id = int(data.get("tg_id", 0))
+        amount = float(data.get("amount", 0))
+        is_expense = bool(data.get("is_expense", True))
+        
+        if not tg_id or amount <= 0:
+            return web.json_response({"error": "Invalid data"}, status=400)
+            
+        async with async_session_maker() as session:
+            user_repo = UserRepository(session)
+            wallet_repo = WalletRepository(session)
+            tx_repo = TransactionRepository(session)
+            
+            user = await user_repo.get_by_telegram_id(tg_id)
+            if not user:
+                return web.json_response({"error": "User not found"}, status=404)
+                
+            wallet = await wallet_repo.get_default_wallet(user.id)
+            if not wallet:
+                return web.json_response({"error": "No wallet found"}, status=400)
+                
+            if is_expense and wallet.balance < amount:
+                return web.json_response({"error": "Insufficient funds", "success": False})
+                
+            # Create the transaction
+            tx = await tx_repo.create_transaction(
+                user_id=user.id,
+                wallet_id=wallet.id,
+                category_id=None, # Will map specific UI categories later
+                amount=amount,
+                type="expense" if is_expense else "income",
+                description="WebApp orqali",
+            )
+            # Update physical wallet balance
+            await wallet_repo.update_balance(wallet.id, amount, is_expense=is_expense)
+            print(f"✅ DB Update: User {tg_id} transacted {amount}. Expense: {is_expense}")
+            return web.json_response({"status": "ok", "success": True, "new_balance": wallet.balance})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
 async def start_web_app():
     """Start the aiohttp web server to serve the React Mini App"""
-    app = web.Application()
+    app = web.Application(middlewares=[cors_middleware])
     
     # Routes for frontend
     app.router.add_get('/', index_handler)
+    app.router.add_get('/api/user', api_get_user)
+    app.router.add_post('/api/transaction', api_post_transaction)
     app.router.add_static('/', path=Path(__file__).parent / 'webapp' / 'dist', name='webapp')
     
     runner = web.AppRunner(app)

@@ -2,26 +2,22 @@
 
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, WebAppInfo
 
-# Telegram faqat HTTPS manzillarni qabul qiladi. Lokal test uchun istalgan xavfsiz URL qo'yib turamiz.
-LOCAL_WEB_APP_URL = "https://moliyabot-demo.netlify.app" # Deploy bo'lguncha turg'un dummy havolasi
+# GitHub Pages orqali WebApp butunlay onlayn turibdi (Bepul va SSL bilan himoyalangan HTTPS server)
+LOCAL_WEB_APP_URL = "https://fazliddinakbarov13-netizen.github.io/moliya-bot-app/"
 
 def get_main_menu(lang: str = "uz") -> ReplyKeyboardMarkup:
     """Get main menu keyboard."""
     if lang == "ru":
         buttons = [
-            [KeyboardButton(text="📱 Открыть приложение", web_app=WebAppInfo(url=LOCAL_WEB_APP_URL))],
             [KeyboardButton(text="📝 Расход"), KeyboardButton(text="💰 Доход")],
-            [KeyboardButton(text="📊 Отчёт"), KeyboardButton(text="🎯 Цели")],
-            [KeyboardButton(text="💳 Кредиты"), KeyboardButton(text="👛 Счета")],
-            [KeyboardButton(text="🤝 Долги"), KeyboardButton(text="⚙️ Настройки")],
+            [KeyboardButton(text="📊 Отчёт"), KeyboardButton(text="⚙️ Настройки")],
+            [KeyboardButton(text="📱 Открыть приложение", web_app=WebAppInfo(url=LOCAL_WEB_APP_URL))],
         ]
     else:
         buttons = [
-            [KeyboardButton(text="📱 Ilovani ochish", web_app=WebAppInfo(url=LOCAL_WEB_APP_URL))],
             [KeyboardButton(text="📝 Xarajat"), KeyboardButton(text="💰 Daromad")],
-            [KeyboardButton(text="📊 Hisobot"), KeyboardButton(text="🎯 Maqsadlar")],
-            [KeyboardButton(text="💳 Kreditlar"), KeyboardButton(text="👛 Hisoblarim")],
-            [KeyboardButton(text="🤝 Qarzlarim"), KeyboardButton(text="⚙️ Sozlamalar")],
+            [KeyboardButton(text="📊 Hisobot"), KeyboardButton(text="⚙️ Sozlamalar")],
+            [KeyboardButton(text="📱 Ilovani ochish", web_app=WebAppInfo(url=LOCAL_WEB_APP_URL))],
         ]
 
     return ReplyKeyboardMarkup(

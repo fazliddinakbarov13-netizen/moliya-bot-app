@@ -11,13 +11,23 @@ import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
-  horizontalListSortingStrategy,
+  rectSortingStrategy,
   useSortable
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { PieChart, Activity, CreditCard } from 'lucide-react';
+import { 
+  PieChart, 
+  CreditCard,
+  Target,
+  Banknote,
+  Users,
+  Settings,
+  FileText
+} from 'lucide-react';
 
-const SortableItem = ({ id, name, icon: Icon }: any) => {
+import { useRef } from 'react';
+
+const SortableItem = ({ id, name, icon: Icon, onClick }: any) => {
   const {
     attributes,
     listeners,
@@ -25,6 +35,8 @@ const SortableItem = ({ id, name, icon: Icon }: any) => {
     transform,
     transition,
   } = useSortable({ id });
+
+  const pointerDownTime = useRef(0);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -37,19 +49,33 @@ const SortableItem = ({ id, name, icon: Icon }: any) => {
       style={style}
       {...attributes}
       {...listeners}
-      className="neo-elem cursor-grab active:cursor-grabbing p-4 flex flex-col items-center justify-center min-w-[100px] hover:shadow-lg transition-shadow bg-[var(--bg-color)]"
+      onPointerDown={(e) => {
+        pointerDownTime.current = Date.now();
+        if (listeners?.onPointerDown) listeners.onPointerDown(e);
+      }}
+      onPointerUp={() => {
+        if (Date.now() - pointerDownTime.current < 200) {
+          onClick();
+        }
+      }}
+      onClick={(e) => e.stopPropagation()}
+      className="neo-elem active:cursor-grabbing p-4 flex flex-col items-center justify-center w-[100px] hover:shadow-lg transition-shadow bg-[var(--bg-color)]"
     >
       <Icon size={32} className="mb-2 text-[var(--primary-color)]" />
-      <span className="text-xs font-bold opacity-80">{name}</span>
+      <span className="text-xs font-bold opacity-80 whitespace-nowrap">{name}</span>
     </div>
   );
 };
 
-export function DashboardWidgets() {
+export function DashboardWidgets({ onWidgetClick }: { onWidgetClick: (id: string, name: string) => void }) {
   const [items, setItems] = useState([
     { id: '1', name: 'Statistika', icon: PieChart },
-    { id: '2', name: 'Faollik', icon: Activity },
-    { id: '3', name: 'Kartalar', icon: CreditCard },
+    { id: '2', name: 'Hisobot', icon: FileText },
+    { id: '3', name: 'Maqsadlar', icon: Target },
+    { id: '4', name: 'Kreditlar', icon: Banknote },
+    { id: '5', name: 'Qarzlarim', icon: Users },
+    { id: '6', name: 'Kartalar', icon: CreditCard },
+    { id: '7', name: 'Sozlamalar', icon: Settings },
   ]);
 
   const sensors = useSensors(
@@ -71,7 +97,7 @@ export function DashboardWidgets() {
 
   return (
     <div className="w-full mt-6 mb-8">
-      <h2 className="text-lg font-bold mb-4 opacity-80">Vidjetlar (Drag & Drop)</h2>
+      <h2 className="text-lg font-bold mb-4 opacity-80">Menyu va Vidjetlar (Drag & Drop)</h2>
       <DndContext 
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -79,11 +105,17 @@ export function DashboardWidgets() {
       >
         <SortableContext 
           items={items.map(i => i.id)}
-          strategy={horizontalListSortingStrategy}
+          strategy={rectSortingStrategy}
         >
-          <div className="flex gap-4 overflow-x-auto pb-4 px-1" style={{ touchAction: 'none' }}>
+          <div className="flex flex-wrap gap-4 pb-4 px-1" style={{ touchAction: 'none' }}>
             {items.map((item) => (
-              <SortableItem key={item.id} id={item.id} name={item.name} icon={item.icon} />
+              <SortableItem 
+                key={item.id} 
+                id={item.id} 
+                name={item.name} 
+                icon={item.icon} 
+                onClick={() => onWidgetClick(item.id, item.name)}
+              />
             ))}
           </div>
         </SortableContext>
